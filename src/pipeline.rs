@@ -564,7 +564,7 @@ mod tests {
         // History directory should have an archived file
         let history_entries: Vec<_> = std::fs::read_dir(pipeline.history_dir())
             .unwrap()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .collect();
         assert!(
             !history_entries.is_empty(),

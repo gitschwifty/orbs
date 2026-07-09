@@ -293,7 +293,7 @@ impl SessionStore {
                 out.push(meta);
             }
         }
-        out.sort_by(|a, b| b.init.created_at.cmp(&a.init.created_at));
+        out.sort_by_key(|meta| std::cmp::Reverse(meta.init.created_at));
         Ok(out)
     }
 

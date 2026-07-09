@@ -68,7 +68,7 @@ impl TaskStore {
         }
 
         let mut result: Vec<Task> = tasks.into_values().collect();
-        result.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        result.sort_by_key(|task| task.created_at);
         Ok(result)
     }
 
@@ -214,7 +214,7 @@ mod tests {
             .map(|i| {
                 let store = store.clone();
                 std::thread::spawn(move || {
-                    let task = Task::new(&format!("Task {i}"), &format!("desc {i}"));
+                    let task = Task::new(format!("Task {i}"), format!("desc {i}"));
                     let id = task.id;
                     store.append(&task).unwrap();
                     id

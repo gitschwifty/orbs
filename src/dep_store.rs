@@ -312,17 +312,13 @@ impl DepStore {
             let to_str = edge.to.as_str();
 
             match edge.edge_type {
-                EdgeType::Blocks => {
-                    // from blocks to => to is blocked by from
-                    if orb_map.contains_key(to_str) {
-                        blockers.entry(to_str).or_default().push(from_str);
-                    }
+                // from blocks to => to is blocked by from
+                EdgeType::Blocks if orb_map.contains_key(to_str) => {
+                    blockers.entry(to_str).or_default().push(from_str);
                 }
-                EdgeType::DependsOn => {
-                    // from depends on to => from is blocked by to
-                    if orb_map.contains_key(from_str) {
-                        blockers.entry(from_str).or_default().push(to_str);
-                    }
+                // from depends on to => from is blocked by to
+                EdgeType::DependsOn if orb_map.contains_key(from_str) => {
+                    blockers.entry(from_str).or_default().push(to_str);
                 }
                 _ => {}
             }
@@ -373,15 +369,11 @@ impl DepStore {
             let to_str = edge.to.as_str();
 
             match edge.edge_type {
-                EdgeType::Blocks => {
-                    if orb_map.contains_key(to_str) {
-                        blockers.entry(to_str).or_default().push(from_str);
-                    }
+                EdgeType::Blocks if orb_map.contains_key(to_str) => {
+                    blockers.entry(to_str).or_default().push(from_str);
                 }
-                EdgeType::DependsOn => {
-                    if orb_map.contains_key(from_str) {
-                        blockers.entry(from_str).or_default().push(to_str);
-                    }
+                EdgeType::DependsOn if orb_map.contains_key(from_str) => {
+                    blockers.entry(from_str).or_default().push(to_str);
                 }
                 _ => {}
             }

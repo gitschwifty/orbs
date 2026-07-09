@@ -612,7 +612,7 @@ impl OrbPhase {
 /// Returns true if moving from `from` (None means orb has no status yet)
 /// to `to` is permitted by the lifecycle diagram.
 fn status_transition_allowed(from: Option<OrbStatus>, to: OrbStatus) -> bool {
-    use OrbStatus::*;
+    use OrbStatus::{Active, Cancelled, Deferred, Done, Draft, Failed, Pending, Review, Tombstone};
     // Tombstone is an admin override — reachable from any state.
     if to == Tombstone {
         return true;
@@ -642,7 +642,10 @@ fn status_transition_allowed(from: Option<OrbStatus>, to: OrbStatus) -> bool {
 /// Returns true if moving from `from` (None means orb has no phase yet)
 /// to `to` is permitted by the lifecycle diagram.
 fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
-    use OrbPhase::*;
+    use OrbPhase::{
+        Cancelled, Decomposing, Deferred, Done, Draft, Executing, Failed, Pending, Reevaluating,
+        Refining, Review, Speccing, Tombstone, Waiting,
+    };
     if to == Tombstone {
         return true;
     }
@@ -667,24 +670,12 @@ fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
         (Draft, Pending)
             | (Pending, Speccing)
             | (Speccing, Decomposing)
-            | (Decomposing, Refining)
-            | (Refining, Review)
-            | (Review, Waiting)
-            | (Review, Done) // post-completion review approve
-            | (Review, Refining) // post-refinement review request-changes
-            | (Review, Executing) // post-completion review request-changes
-            | (Waiting, Executing)
+            | (Decomposing | Review | Reevaluating | Done, Refining)
+            | (Refining | Reevaluating | Executing, Review)
+            | (Review | Reevaluating, Waiting)
+            | (Review | Executing, Done)
+            | (Review | Waiting | Reevaluating | Done, Executing)
             | (Waiting, Reevaluating)
-            | (Reevaluating, Waiting)
-            | (Reevaluating, Executing)
-            | (Reevaluating, Refining)
-            | (Reevaluating, Review) // escalate to human review
-            | (Executing, Review) // post-completion review entry
-            | (Executing, Done)
-            // Re-entry on reviewer `Revise` verdicts (task 60).
-            // Cap is enforced by `Orb::try_begin_revision`.
-            | (Done, Executing) // Revise{Execution} on a phase-orb
-            | (Done, Refining) // Revise{Decomposition} or re-eval Pivot
     )
 }
 

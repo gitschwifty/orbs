@@ -84,7 +84,7 @@ impl OrbStore {
         }
 
         let mut result: Vec<Orb> = orbs.into_values().collect();
-        result.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        result.sort_by_key(|orb| orb.created_at);
         Ok(result)
     }
 

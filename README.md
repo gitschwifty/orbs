@@ -1,6 +1,66 @@
-# orbs — Core Library
+# orbs - durable work item library
 
-The `orbs` crate provides the data model, persistence, and query layer for orboros. It has no async dependencies and no knowledge of workers or IPC.
+`orbs` is a standalone Rust library for modeling, storing, and querying
+durable work items.
+
+It grew out of Orboros, but it is not tied to Orboros. You can use it anywhere
+you need append-only task records, dependency graphs, audit trails, hierarchical
+work breakdowns, or lightweight local project state.
+
+`orbs` is also an extension of Beads: it keeps the spirit of small,
+file-backed work items while adding richer lifecycle state, typed dependency
+edges, review metadata, audit events, session transcripts, and pipeline-local
+stores.
+
+The crate has no async runtime dependency and no knowledge of workers, IPC,
+LLMs, CLIs, or daemon processes. Applications decide how work gets created,
+displayed, routed, reviewed, or executed; `orbs` handles the durable data model
+and local storage primitives.
+
+## What It Provides
+
+- Orb records with content-addressed, hierarchical IDs
+- Task-style and phase-style lifecycles
+- Append-only JSONL stores where the latest record wins
+- Dependency edges with cycle checks and scheduling queries
+- Audit events, comments, review reports, and confidence metadata
+- Tree reconstruction for parent/child work breakdowns
+- Pipeline directories with snapshots, compaction, and recovery helpers
+
+## CLI
+
+The crate also ships a small `orbs` CLI for direct local store operations. It
+does not run workers, talk to a daemon, or know about Orboros. By default it
+uses `.orbs/` in the current directory; pass `--state-dir <dir>` or set
+`ORBS_STATE_DIR` to point somewhere else.
+
+```bash
+cargo run -p orbs-cli -- init
+cargo install --path cli
+```
+
+```bash
+# Create .orbs/orbs.jsonl, .orbs/deps.jsonl, and .orbs/events.jsonl
+orbs init
+
+# Create and inspect work items
+orbs create "Write README" --type docs --priority 2 --label docs
+orbs list --label docs
+orbs show orb-k4f
+orbs update orb-k4f --priority 1 --add-label release
+orbs delete orb-k4f --reason "superseded"
+
+# Manage dependency edges
+orbs dep add orb-a orb-b --type blocks
+orbs deps orb-b
+orbs dep rm orb-a orb-b --type blocks
+
+# Query local scheduling and hierarchy
+orbs ready
+orbs waiting
+orbs pipeline
+orbs tree orb-root
+```
 
 ## Orb Basics
 

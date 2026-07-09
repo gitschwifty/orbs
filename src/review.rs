@@ -21,17 +21,12 @@ use crate::id::OrbId;
 ///
 /// Default to `Execution` when the reviewer's intent is ambiguous;
 /// re-executing once is cheaper than re-planning unnecessarily.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviseScope {
+    #[default]
     Execution,
     Decomposition,
-}
-
-impl Default for ReviseScope {
-    fn default() -> Self {
-        Self::Execution
-    }
 }
 
 /// The reviewer's verdict on a completed orb.
