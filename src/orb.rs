@@ -124,6 +124,19 @@ pub struct ExecutionMeta {
     pub completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_tokens: Option<u32>,
+    /// Logical prompt bucket used for this dispatch, e.g.
+    /// `worker.execute` or `phase.speccing`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_category: Option<String>,
+    /// SHA-256 hash of the resolved system prompt used for this
+    /// dispatch. This changes whenever built-in or configured prompt
+    /// text changes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt_hash: Option<String>,
+    /// Where the system prompt came from (`built_in`,
+    /// `config_inline:<key>`, or `config_file:<key>:<path>`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt_source: Option<String>,
     #[serde(default)]
     pub retries: u32,
 }
