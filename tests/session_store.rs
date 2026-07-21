@@ -64,6 +64,7 @@ fn multi_turn_session_round_trips_through_disk() {
                 prompt_tokens: 120,
                 completion_tokens: 40,
                 total_tokens: 160,
+                ..Default::default()
             },
         },
     ];
@@ -91,6 +92,7 @@ fn multi_turn_session_round_trips_through_disk() {
                 prompt_tokens: 30,
                 completion_tokens: 8,
                 total_tokens: 38,
+                ..Default::default()
             },
         },
     ];

@@ -117,11 +117,21 @@ pub enum CloseReason {
 
 /// Token usage snapshot. Mirrors `orboros::ipc::Usage` shape; kept local to
 /// the lib crate so persistence types don't depend on the IPC types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SessionUsage {
-    pub prompt_tokens: u32,
-    pub completion_tokens: u32,
-    pub total_tokens: u32,
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub total_tokens: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_micros: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u64>,
 }
 
 impl Add for SessionUsage {
@@ -134,7 +144,30 @@ impl Add for SessionUsage {
                 .completion_tokens
                 .saturating_add(other.completion_tokens),
             total_tokens: self.total_tokens.saturating_add(other.total_tokens),
+            cost_micros: sum_option_u64(self.cost_micros, other.cost_micros),
+            cost_currency: matching_currency(self.cost_currency, other.cost_currency),
+            cached_tokens: sum_option_u64(self.cached_tokens, other.cached_tokens),
+            cache_write_tokens: sum_option_u64(self.cache_write_tokens, other.cache_write_tokens),
+            reasoning_tokens: sum_option_u64(self.reasoning_tokens, other.reasoning_tokens),
         }
+    }
+}
+
+fn sum_option_u64(a: Option<u64>, b: Option<u64>) -> Option<u64> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.saturating_add(b)),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    }
+}
+
+fn matching_currency(a: Option<String>, b: Option<String>) -> Option<String> {
+    match (a, b) {
+        (Some(a), Some(b)) if a == b => Some(a),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        _ => None,
     }
 }
 
@@ -255,7 +288,7 @@ impl Session {
                 self.turn_count = self.turn_count.saturating_add(1);
             }
             SessionEvent::Usage { usage, .. } => {
-                self.total_usage = self.total_usage + *usage;
+                self.total_usage = self.total_usage.clone() + usage.clone();
             }
             SessionEvent::StatusChanged { to, reason, at } => {
                 self.status = *to;
@@ -418,16 +451,48 @@ mod tests {
             prompt_tokens: 1,
             completion_tokens: 2,
             total_tokens: 3,
+            cost_micros: Some(10),
+            cost_currency: Some("USD".into()),
+            cached_tokens: Some(4),
+            cache_write_tokens: Some(5),
+            reasoning_tokens: Some(6),
         };
         let b = SessionUsage {
             prompt_tokens: 10,
             completion_tokens: 20,
             total_tokens: 30,
+            cost_micros: Some(20),
+            cost_currency: Some("USD".into()),
+            cached_tokens: Some(40),
+            cache_write_tokens: Some(50),
+            reasoning_tokens: Some(60),
         };
         let sum = a + b;
         assert_eq!(sum.prompt_tokens, 11);
         assert_eq!(sum.completion_tokens, 22);
         assert_eq!(sum.total_tokens, 33);
+        assert_eq!(sum.cost_micros, Some(30));
+        assert_eq!(sum.cost_currency.as_deref(), Some("USD"));
+        assert_eq!(sum.cached_tokens, Some(44));
+        assert_eq!(sum.cache_write_tokens, Some(55));
+        assert_eq!(sum.reasoning_tokens, Some(66));
+    }
+
+    #[test]
+    fn session_usage_addition_drops_mixed_currency() {
+        let usd = SessionUsage {
+            cost_micros: Some(10),
+            cost_currency: Some("USD".into()),
+            ..Default::default()
+        };
+        let eur = SessionUsage {
+            cost_micros: Some(20),
+            cost_currency: Some("EUR".into()),
+            ..Default::default()
+        };
+        let sum = usd + eur;
+        assert_eq!(sum.cost_micros, Some(30));
+        assert_eq!(sum.cost_currency, None);
     }
 
     #[test]
@@ -447,6 +512,7 @@ mod tests {
                 prompt_tokens: 10,
                 completion_tokens: 20,
                 total_tokens: 30,
+                ..Default::default()
             },
         });
         s.apply(&SessionEvent::Usage {
@@ -455,6 +521,7 @@ mod tests {
                 prompt_tokens: 5,
                 completion_tokens: 7,
                 total_tokens: 12,
+                ..Default::default()
             },
         });
         assert_eq!(s.total_usage.prompt_tokens, 15);
@@ -507,15 +574,17 @@ mod tests {
     #[test]
     fn session_usage_add_saturates() {
         let big = SessionUsage {
-            prompt_tokens: u32::MAX,
+            prompt_tokens: u64::MAX,
             completion_tokens: 0,
             total_tokens: 0,
+            ..Default::default()
         };
         let one = SessionUsage {
             prompt_tokens: 1,
             completion_tokens: 0,
             total_tokens: 0,
+            ..Default::default()
         };
-        assert_eq!((big + one).prompt_tokens, u32::MAX);
+        assert_eq!((big + one).prompt_tokens, u64::MAX);
     }
 }

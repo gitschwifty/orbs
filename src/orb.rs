@@ -119,11 +119,23 @@ pub struct ExecutionMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_latency_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt_tokens: Option<u32>,
+    pub prompt_tokens: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub completion_tokens: Option<u32>,
+    pub completion_tokens: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_tokens: Option<u32>,
+    pub total_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_micros: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation_id: Option<String>,
     /// Logical prompt bucket used for this dispatch, e.g.
     /// `worker.execute` or `phase.speccing`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1318,12 +1330,24 @@ mod tests {
             prompt_tokens: Some(100),
             completion_tokens: Some(50),
             total_tokens: Some(150),
+            cost_micros: Some(12_345),
+            cost_currency: Some("USD".into()),
+            cached_tokens: Some(25),
+            cache_write_tokens: Some(5),
+            reasoning_tokens: Some(7),
+            generation_id: Some("gen-123".into()),
             retries: 2,
             ..Default::default()
         };
         let json = serde_json::to_string(&meta).unwrap();
         let parsed: ExecutionMeta = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.prompt_tokens, Some(100));
+        assert_eq!(parsed.cost_micros, Some(12_345));
+        assert_eq!(parsed.cost_currency.as_deref(), Some("USD"));
+        assert_eq!(parsed.cached_tokens, Some(25));
+        assert_eq!(parsed.cache_write_tokens, Some(5));
+        assert_eq!(parsed.reasoning_tokens, Some(7));
+        assert_eq!(parsed.generation_id.as_deref(), Some("gen-123"));
         assert_eq!(parsed.retries, 2);
     }
 }
