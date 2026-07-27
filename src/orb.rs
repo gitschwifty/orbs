@@ -299,6 +299,7 @@ fn default_priority() -> u8 {
     3
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(value: &bool) -> bool {
     !*value
 }
@@ -689,6 +690,7 @@ fn status_transition_allowed(from: Option<OrbStatus>, to: OrbStatus) -> bool {
 
 /// Returns true if moving from `from` (None means orb has no phase yet)
 /// to `to` is permitted by the lifecycle diagram.
+#[allow(clippy::unnested_or_patterns)]
 fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
     use OrbPhase::{
         Cancelled, Decomposing, Deferred, Done, Draft, Executing, ExecutingChildren, Failed,
