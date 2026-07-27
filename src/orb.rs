@@ -690,7 +690,6 @@ fn status_transition_allowed(from: Option<OrbStatus>, to: OrbStatus) -> bool {
 
 /// Returns true if moving from `from` (None means orb has no phase yet)
 /// to `to` is permitted by the lifecycle diagram.
-#[allow(clippy::unnested_or_patterns)]
 fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
     use OrbPhase::{
         Cancelled, Decomposing, Deferred, Done, Draft, Executing, ExecutingChildren, Failed,
@@ -715,20 +714,18 @@ fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
     if from == Deferred && matches!(to, Pending | Waiting) {
         return true;
     }
-    matches!(
-        (from, to),
-        (Draft, Pending)
-            | (Pending, Speccing)
-            | (Speccing, Decomposing)
-            | (Decomposing | Review | Reevaluating | Done, Refining)
-            | (Refining | Reevaluating | Executing, Review)
-            | (Review | Reevaluating, Waiting)
-            | (ExecutingChildren, Done | Executing)
-            | (Review | Executing, Done)
-            | (Review | Waiting | Reevaluating | Done, Executing)
-            | (Waiting, ExecutingChildren)
-            | (Waiting, Reevaluating)
-    )
+    match to {
+        Pending => from == Draft,
+        Speccing => from == Pending,
+        Decomposing => from == Speccing,
+        Refining => matches!(from, Decomposing | Review | Reevaluating | Done),
+        Review => matches!(from, Refining | Reevaluating | Executing),
+        Waiting => matches!(from, Review | Reevaluating),
+        ExecutingChildren => from == Waiting,
+        Executing => matches!(from, Review | Waiting | Reevaluating | Done | ExecutingChildren),
+        Done => matches!(from, Review | Executing | ExecutingChildren),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
