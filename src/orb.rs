@@ -69,6 +69,9 @@ pub enum OrbPhase {
     Refining,
     Review,
     Waiting,
+    /// Parent phase while child orbs are being scheduled/executed.
+    /// This is aggregate state and must not be dispatched to a worker.
+    ExecutingChildren,
     Executing,
     Reevaluating,
     Done,
@@ -213,6 +216,12 @@ pub struct Orb {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root_id: Option<OrbId>,
 
+    /// Whether this parent has its own synthesis/verification work after its
+    /// required children complete. A false value means child completion can
+    /// complete the parent directly.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub has_parent_final_work: bool,
+
     // ── Timestamps ───────────────────────────────────────────
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -290,6 +299,10 @@ fn default_priority() -> u8 {
     3
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 impl Orb {
     /// Creates a new pending Orb of type Task.
     pub fn new(title: impl Into<String>, description: impl Into<String>) -> Self {
@@ -323,6 +336,7 @@ impl Orb {
             difficulty: None,
             parent_id: None,
             root_id: None,
+            has_parent_final_work: false,
             created_at: now,
             updated_at: now,
             closed_at: None,
@@ -371,6 +385,14 @@ impl Orb {
         self
     }
 
+    /// Marks whether this parent has final synthesis/verification work after
+    /// its children complete.
+    #[must_use]
+    pub fn with_parent_final_work(mut self, has_parent_final_work: bool) -> Self {
+        self.has_parent_final_work = has_parent_final_work;
+        self
+    }
+
     /// Computes and sets the content hash.
     pub fn update_content_hash(&mut self) {
         self.content_hash = Some(id::content_hash(
@@ -404,6 +426,7 @@ impl Orb {
                 OrbPhase::Speccing
                 | OrbPhase::Decomposing
                 | OrbPhase::Refining
+                | OrbPhase::ExecutingChildren
                 | OrbPhase::Executing
                 | OrbPhase::Reevaluating => TaskStatus::Active,
                 OrbPhase::Review => TaskStatus::Review,
@@ -668,8 +691,8 @@ fn status_transition_allowed(from: Option<OrbStatus>, to: OrbStatus) -> bool {
 /// to `to` is permitted by the lifecycle diagram.
 fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
     use OrbPhase::{
-        Cancelled, Decomposing, Deferred, Done, Draft, Executing, Failed, Pending, Reevaluating,
-        Refining, Review, Speccing, Tombstone, Waiting,
+        Cancelled, Decomposing, Deferred, Done, Draft, Executing, ExecutingChildren, Failed,
+        Pending, Reevaluating, Refining, Review, Speccing, Tombstone, Waiting,
     };
     if to == Tombstone {
         return true;
@@ -698,8 +721,10 @@ fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
             | (Decomposing | Review | Reevaluating | Done, Refining)
             | (Refining | Reevaluating | Executing, Review)
             | (Review | Reevaluating, Waiting)
+            | (ExecutingChildren, Done | Executing)
             | (Review | Executing, Done)
             | (Review | Waiting | Reevaluating | Done, Executing)
+            | (Waiting, ExecutingChildren)
             | (Waiting, Reevaluating)
     )
 }
@@ -724,6 +749,21 @@ mod tests {
     fn new_orb_has_zero_revision_count() {
         let orb = Orb::new("t", "d");
         assert_eq!(orb.revision_count, 0);
+    }
+
+    #[test]
+    fn parent_final_work_defaults_false_and_round_trips() {
+        let orb = Orb::new("parent", "children")
+            .with_type(OrbType::Feature)
+            .with_parent_final_work(true);
+        assert!(orb.has_parent_final_work);
+        let json = serde_json::to_string(&orb).unwrap();
+        let round_trip: Orb = serde_json::from_str(&json).unwrap();
+        assert!(round_trip.has_parent_final_work);
+
+        let legacy = serde_json::to_string(&Orb::new("legacy", "old")).unwrap();
+        let legacy_orb: Orb = serde_json::from_str(&legacy).unwrap();
+        assert!(!legacy_orb.has_parent_final_work);
     }
 
     #[test]
@@ -1181,6 +1221,7 @@ mod tests {
         orb.set_phase(OrbPhase::Refining).unwrap();
         orb.set_phase(OrbPhase::Review).unwrap();
         orb.set_phase(OrbPhase::Waiting).unwrap();
+        orb.set_phase(OrbPhase::ExecutingChildren).unwrap();
         orb.set_phase(OrbPhase::Executing).unwrap();
         orb.set_phase(OrbPhase::Done).unwrap();
     }
