@@ -721,7 +721,7 @@ fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
         Refining => matches!(from, Decomposing | Review | Reevaluating | Done),
         Review => matches!(from, Refining | Reevaluating | Executing),
         Waiting => matches!(from, Review | Reevaluating),
-        ExecutingChildren => from == Waiting,
+        ExecutingChildren | Reevaluating => from == Waiting,
         Executing => matches!(from, Review | Waiting | Reevaluating | Done | ExecutingChildren),
         Done => matches!(from, Review | Executing | ExecutingChildren),
         _ => false,
