@@ -121,6 +121,12 @@ pub struct ExecutionMeta {
     pub tool_latency_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_latency_ms: Option<u64>,
+    /// Number of assistant/model turns used by the execution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_turns: Option<u32>,
+    /// Number of tool calls made during the execution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_tokens: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -722,7 +728,10 @@ fn phase_transition_allowed(from: Option<OrbPhase>, to: OrbPhase) -> bool {
         Review => matches!(from, Refining | Reevaluating | Executing),
         Waiting => matches!(from, Review | Reevaluating),
         ExecutingChildren | Reevaluating => from == Waiting,
-        Executing => matches!(from, Review | Waiting | Reevaluating | Done | ExecutingChildren),
+        Executing => matches!(
+            from,
+            Review | Waiting | Reevaluating | Done | ExecutingChildren
+        ),
         Done => matches!(from, Review | Executing | ExecutingChildren),
         _ => false,
     }
@@ -1376,12 +1385,16 @@ mod tests {
             cache_write_tokens: Some(5),
             reasoning_tokens: Some(7),
             generation_id: Some("gen-123".into()),
+            assistant_turns: Some(3),
+            tool_calls: Some(2),
             retries: 2,
             ..Default::default()
         };
         let json = serde_json::to_string(&meta).unwrap();
         let parsed: ExecutionMeta = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.prompt_tokens, Some(100));
+        assert_eq!(parsed.assistant_turns, Some(3));
+        assert_eq!(parsed.tool_calls, Some(2));
         assert_eq!(parsed.cost_micros, Some(12_345));
         assert_eq!(parsed.cost_currency.as_deref(), Some("USD"));
         assert_eq!(parsed.cached_tokens, Some(25));
